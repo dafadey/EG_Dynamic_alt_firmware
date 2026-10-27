@@ -1,0 +1,24 @@
+#!/bin/bash
+
+echo building bootloader
+g++ -O3 HOST_stm32_bootloader.cpp -o bootloader
+
+echo cleaning
+rm -f firmware.elf
+rm -f firmware.o
+rm -f firmware.elf
+rm -f firmware.bin
+
+echo compiling
+#-fsanitize=undefined
+#arm-none-eabi-g++ -O1 -c -fno-common -mcpu=cortex-m4 -mthumb firmware.cpp -o firmware.o
+arm-none-eabi-g++ -Os -c -fno-common -mcpu=cortex-m4 firmware.cpp -o firmware.o
+
+echo linking
+arm-none-eabi-ld -T linker.ld -o firmware.elf firmware.o
+#rm main.o
+arm-none-eabi-objcopy -O binary -j .text firmware.elf firmware.bin
+arm-none-eabi-objdump -D firmware.elf > firmware.dis
+
+# bin to s
+arm-none-eabi-objdump -D -bbinary -marm firmware.bin -Mforce-thumb > firmware_direct.dis
