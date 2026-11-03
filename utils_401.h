@@ -133,3 +133,50 @@ typedef struct {
 } TIM;
 
 #define TIM4      ((volatile TIM*)(PERIPH_BASE+0x800))
+
+#define USART1_BASE    (PERIPH_BASE + 0x11000)
+typedef struct {
+  uint32_t SR; // status register (TXE:transmit-empty(7), TC:transmission-complete(6), RXNE:read-reg-not-empty(5))
+  uint32_t DR; // data reserved 24 bits + 8 data bits
+  uint32_t BRR; //baud rate DIV_Mantissa[15:4], DIV_Fraction[3:0]
+  // USARTDIV = DIV_Mantissa + DIV_Fraction/16
+  // Tx/Rx baud = fCK / (16 * USARTDIV) = fCK / (16 * DIV_Mantissa + DIV_Fraction)
+  uint32_t CR1; // transmit/receive and interrupts endable (TE:transmitter-enabled(3), RE:receiver-enabled(2))
+  uint32_t CR2; // mostly useless
+  uint32_t CR3; // DMA configured here (DMAT:dma-transiver-enable(7), DMAR:dma-receiver-enabled(6))
+  uint32_t GTPR;
+
+} USART;
+
+#define USART1 ((volatile USART*)(USART1_BASE))
+
+//DMA2:
+//USART1:RX cha4 stream2/5
+//USART1:TX cha4 stream7
+//ADC1  cha0 stream0/4
+#define DMA2_BASE      (PERIPH_BASE + 0x26400)
+
+//DMA2_BASE = 40026400
+//400264C0 SCR += C0
+//400264C4 SNDTR += C4
+//400264C8 SPAR += C8
+//400264CC SM0AR += CC
+
+typedef struct {
+  uint32_t SCR;
+  uint32_t SNDTR;
+  uint32_t SPAR;
+  uint32_t SM0AR;
+  uint32_t SM1AR;
+  uint32_t SFCR;
+} DMA_STREAM;
+
+typedef struct {
+  uint32_t LISR;
+  uint32_t HISR;
+  uint32_t LIFCR;
+  uint32_t HIFCR;
+  DMA_STREAM streams[8];
+} DMA;
+
+#define DMA2 ((volatile DMA*) (DMA2_BASE))

@@ -2,6 +2,7 @@
 
 echo building bootloader
 g++ -O3 HOST_stm32_bootloader.cpp -o bootloader
+g++ -O3 USART_prober.cpp -o USART_prober
 
 echo cleaning
 rm -f firmware.elf
