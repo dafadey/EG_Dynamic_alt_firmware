@@ -388,6 +388,50 @@ struct stm32_bootloader {
   
 };
 
+bool stm32_go(const char* device = nullptr) {
+  stm32_bootloader stm32;
+  if(!stm32.connect(device)) {
+    std::cout << "failed to connect to COM port \"" << (device ? device : "/dev/ttyUSB0") << "\"\n";
+    return false;
+  }
+  
+  std::cout << "reset MCU now!!!\n";
+  for(int i=0;i<8;i++) {
+    delay(500);
+    std::cout << ' ' << i << std::flush;
+  }
+  std::cout << "hope you did it\n";
+  std::cout << "connecting to MCU...\n";
+  
+  if(!stm32.start()) {
+    std::cout << "failed to connect to stm32 boot loader\n";
+    return false;
+  }
+  
+  if(!stm32.get()) {
+    std::cout << "failed to get commmand list\n";
+    return false;
+  }
+
+  if(!stm32.getid()) {
+    std::cout << "failed to get chip id\n";
+    return false;
+  }
+
+  if(!stm32.getversion()) {
+    std::cout << "failed to get protocol version\n";
+    return false;
+  }
+    
+  if(!stm32.go(0x08000000)) {
+    std::cout << "failed to issue go command\n";
+    return false;
+  }
+  
+  stm32.disconnect();
+  return true;
+  
+}
 
 bool stm32_programm_go(const char* file, const char* device = nullptr) {
   stm32_bootloader stm32;

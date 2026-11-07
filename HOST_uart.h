@@ -226,9 +226,8 @@ struct UART {
     int len = 0;
     len = write(fd, send_buf, data_len);
     if(len == data_len)
-    {
       return len;
-    } else {
+    else {
       tcflush(fd,TCOFLUSH);
       return -1;
     }

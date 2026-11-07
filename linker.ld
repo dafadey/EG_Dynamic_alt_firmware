@@ -1,7 +1,11 @@
 MEMORY{
 	FLASH ( rx ) : ORIGIN = 0x08000000 , LENGTH = 128K
-	SRAM ( xrw) : ORIGIN = 0x20000000 , LENGTH = 64K
+	SRAM  ( xrw) : ORIGIN = 0x20000000 , LENGTH = 64K
+	SRAM_DATA  ( xrw) : ORIGIN = 0x20000000 , LENGTH = 0x80
+	SRAM_BSS   ( xrw) : ORIGIN = 0x20000080 , LENGTH = 0x80
 }
+
+/*FLASH and SRAM are just labels*/
 
 /* output sections */
 SECTIONS
@@ -10,15 +14,19 @@ SECTIONS
     .text :
     {
         *(.vector_table)    /* Vector table */
+        *(.text.startup)    /* main function */
         *(.text)            /* Program code */
-        *(.rodata)
-        *(.data)
+        *(.rodata.*)
+        /**(.data)*/
     } >FLASH
- 
-    /* uninitialized global and static variables (which 
-       we don't have any in this example) into SRAM */
+     
+    /* uninitialized global and static variables into SRAM */
     .data :
     {
         *(.data)
-    } >SRAM
+    } >SRAM_DATA AT >FLASH
+    .bss :
+    {
+        *(.bss)
+    } >SRAM_BSS
 }   

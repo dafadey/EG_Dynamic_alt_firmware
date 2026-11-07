@@ -25,13 +25,52 @@ int main() {
              1 /*stopbits 1 one, 2 two*/,
              'e' /*parity 'n' -- no parity, 'o' -- odd parity, 'e' -- even parity, 's' -- space*/);
 
+    std::string s;
+    const size_t n=16;
+    char buff[n];
     char in;
     while(true) {
+      std::cout << "your message:";
+      std::cin >> s;
+      if(s=="exit")
+        break;
+
+      //port.send((char*) s.c_str(), s.size());
+      
+      int i=0;
+      
+      for(; i < std::min(s.size(), n); i++)
+        buff[i] = s.c_str()[i];
+      for(; i < n; i++)
+        buff[i] = ' ';
+      port.send(buff, 16);
+      std::cout << "sent!\n";
+      i=0;
+      
+      while(true) {
+        int c = port.recv(&in, 1, 1);
+        if(c==1) {
+          buff[i] = in;
+          i++;
+        } else
+          break;
+        if(i==16)
+          break;
+      }
+
+      if(i==16) {
+        for(i = 0; i < 16; i++)
+          std::cout << buff[i];
+//          std::cout << tohex(buff[i]) << ' ';
+        std::cout << '\n';
+      } else
+        std::cout << "no responce... i=" << i << '\n';
+
+      /*
       int c = port.recv(&in, 1, 7);
       if(c==1)
         std::cout << tohex(in) << ' ' << std::flush;
-      //else
-      //  std::cout << "\n...\n";
+      */
     }
     port.close();
 }

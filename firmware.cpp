@@ -3,16 +3,33 @@
 #include "utils_common.h"
 #include "utils_401.h"
 
-unsigned int* HEAP = (unsigned int*) SRAM_BASE;
+#define HEAP (SRAM_BASE + 0x100UL)
 
 /* HEAP:
  * DMA_tx (32 uint8_t), DMA_rx (32 uint8_t), IA_TABLE (16*16 int_16), IA_TABLE_GAS (16*16 int_16), RPM uint16, MAP utin16, TPS uint16 
  */
 
-unsigned int DMA_tx_sz = 32;
-unsigned int DMA_rx_sz = 32;
-unsigned int nx = 16;
-unsigned int ny = 16;
+volatile uint32_t Ga=1;
+volatile uint32_t Gb=2;
+volatile uint32_t Gc=3;
+volatile uint32_t Gd=4;
+volatile uint32_t Ge=5;
+volatile uint32_t Gj=6;
+volatile uint32_t Gh=7;
+volatile uint32_t Gi=8;
+volatile uint32_t Gg=9;
+volatile uint32_t Gk=10;
+volatile uint32_t Gl=11;
+volatile uint32_t Gm=12;
+volatile uint32_t Gn=13;
+
+const char* msg="asjdhfskdjfhksdjfhksdhgfjsagfksjdgfksjdfhshdfasjdfgaskhdfgasdjhfgasjgfjasdgfajsd";
+const char* msg0="XXXXXXX";
+
+uint32_t DMA_tx_sz;
+uint32_t DMA_rx_sz;
+uint32_t nx;
+uint32_t ny;
 
 uint8_t* DMA_rx;
 uint8_t* DMA_tx;
@@ -24,9 +41,9 @@ uint16_t* TPS; // comes from ADC, TPS line
 
 void allocate_memory() {
   ENTER_CRITICAL // in case reallocation is executed during normal operation
-  DMA_rx = (uint8_t*) HEAP; 
-  DMA_tx = DMA_rx + DMA_tx_sz; 
-  IA_TABLE_NORMAL = (int16_t*) DMA_tx + DMA_rx_sz;
+  DMA_rx = (uint8_t*) HEAP;
+  DMA_tx = DMA_rx + DMA_rx_sz; 
+  IA_TABLE_NORMAL = (int16_t*) DMA_tx + DMA_tx_sz;
   IA_TABLE_GAS = IA_TABLE_NORMAL + nx * ny * sizeof(uint16_t);    
   RPM = (uint16_t*) IA_TABLE_GAS + nx * ny * sizeof(uint16_t);
   MAP = RPM + sizeof(uint16_t);
@@ -142,7 +159,29 @@ This register is write-1-to-clear (W1C), so never use |= on it — you would cle
   }
 }
 
+int main();
+
 int reset() {
+  return main();
+}
+
+extern uint8_t* __data;
+extern uint8_t* __data_end__;
+
+int main() {
+  /*
+  {
+    uint8_t* from = __data;
+    uint8_t* to = (uint8_t*) SRAM_BASE;
+    for(; from < __data_end__; from++, to++)
+      *to = *from;
+  }
+  */
+  DMA_tx_sz = 32;
+  DMA_rx_sz = 32;
+  nx = 16;
+  ny = 16;
+  
   allocate_memory();
   
   //revert to default if we got here from bootloader via go
@@ -226,7 +265,7 @@ int reset() {
   GPIOA->MODER &= ~(3U << (9*2)); // PA9 reset
   GPIOA->MODER &= ~(3U << (10*2)); // PA10 reset (input mode)
   GPIOA->MODER |= (2U << (9*2)); // PA9 alternate
-  //GPIOA->MODER |= (2U << (10*2)); // PA10 alternate
+  GPIOA->MODER |= (2U << (10*2)); // PA10 alternate
   GPIOA->AFRH |= (0b0111 << 4); // AF7 to AFRH9
   GPIOA->AFRH |= (0b0111 << 8); // AF7 to AFRH10
 
@@ -237,8 +276,8 @@ int reset() {
   //USART1->BRR = 104 * 16 + 2; // 19200 : 1666
   //Tx/Rx baud = fCK / (16 * USARTDIV) = fCK / (16 * DIV_Mantissa + DIV_Fraction)
   //Tx/Rx baud = 115315
-  USART1->CR1 |= 0b1010000001100UL;
-  USART1->CR3 |= (1 << 7UL) | (1 << 6UL); // enable DMA transmitter
+  USART1->CR1 |= 0b1010000001100UL; // M, PCE, TX, RX (I do not understand why M is enabled, without it it sort of works but receiver with parity control does not receive correct data)
+  USART1->CR3 |= (1 << 7UL) | (1 << 6UL); // enable DMA transmitter, and DMA receiver
   DSB
   delay(5000);
 	USART1->CR1 |= 1 << 13UL; //enable USART
@@ -246,14 +285,12 @@ int reset() {
   //DMA stream7 cha4
   DMA2->streams[7].SCR = 0;
   DMA2->streams[7].SCR = (0b100 << 25UL) | (0b01 << 6UL) | (1 << 10UL);//| (1 << 8UL);// | (1 << 5UL); // select channel 4 for stream 7 (USART1 TX) , direction: memory-to-peripherial, memory increment, circ, periferial controls the transfer
-  //DMA2->streams[7].SNDTR = 16; // transfer 16 bytes at a time
   DMA2->streams[7].SPAR = (uint32_t) &(USART1->DR);
   DMA2->streams[7].SM0AR = (uint32_t) DMA_tx;
   //0001 0100 0000 1100;
   
   DMA2->streams[5].SCR = 0;
   DMA2->streams[5].SCR = (0b100 << 25UL) | (0b00 << 6UL) | (1 << 10UL);//| (1 << 8UL);// | (1 << 5UL); // select channel 4 for stream 7 (USART1 TX) , direction: memory-to-peripherial, memory increment, circ, periferial controls the transfer
-  //DMA2->streams[7].SNDTR = 16; // transfer 16 bytes at a time
   DMA2->streams[5].SPAR = (uint32_t) &(USART1->DR);
   DMA2->streams[5].SM0AR = (uint32_t) DMA_rx;
   
@@ -283,6 +320,23 @@ int reset() {
   DMA_tx[14] = ((uint32_t)(&(DMA2->streams[7].SM0AR)) >> 8) & 0xff;
   DMA_tx[15] = (uint32_t)(&(DMA2->streams[7].SM0AR)) & 0xff;
 
+  NOP
+  NOP
+  NOP
+  NOP
+  NOP
+  NOP
+  NOP
+  /*
+  for(int i=0;i<16;i++)
+    DMA_tx[i] = msg[i];
+  for(int i=0;i<3;i++)
+    DMA_tx[i+16] = msg0[i];
+
+  for(int i=0;i<DMA_rx_sz;i++)
+    DMA_rx[i] = ' ';
+  */
+
 /*  
   DMA_tx[0]  = 0b00100001; //0x21
   DMA_tx[1]  = 0b00010001; //0x11
@@ -304,7 +358,10 @@ int reset() {
 
   //int sent_id=0;
 
-
+  bool USARTrxReady = false;
+  
+  int SNDTR5_prev = DMA2->streams[5].SNDTR;
+  
   while(true) {
     int off=11000;
     /*
@@ -314,18 +371,90 @@ int reset() {
     if(sent_id == 16)
       sent_id = 0;
     */
-    
-    if((DMA2->streams[7].SCR & 1) == 0)
-    {
-      //USART1->SR &= ~(1<<6UL); // clear the TC
-      DMA2->streams[7].SNDTR = 16;
-      DMA2->HIFCR |= ((0b1111 << 24UL) | (1 << 22UL)); // huh it is really important to clear those! 
-      DMA2->streams[7].SCR |= 1; // enable stream
-      while((DMA2->streams[7].SCR & 1) == 0); //not sure if needed
+
+/*
+      if((DMA2->streams[7].SCR & 1) == 0) {
+        DMA2->streams[7].SNDTR = 16;
+        DMA2->HIFCR |= ((0b1111 << 24UL) | (1 << 22UL)); // huh it is really important to clear those! 
+        DMA2->streams[7].SCR |= 1; // enable stream
+        while((DMA2->streams[7].SCR & 1) == 0); //not sure if needed
+        off = 5000;
+      }
+*/
+
+
+    if((DMA2->streams[5].SCR & 1) == 0) {
+      DMA2->streams[5].SNDTR = 16;
+      DMA2->HIFCR |= ((0b1111 << 8UL) | (1 << 6UL)); // huh it is really important to clear those! 
+      DMA2->streams[5].SCR |= 1; // enable stream
+      while((DMA2->streams[5].SCR & 1) == 0); //not sure if needed
+
+      if(USARTrxReady) {
+        for(int i=0;i<16;i++) {
+          if(DMA_rx[i] >= 97)
+            DMA_tx[i] = DMA_rx[i] - 32;
+          else
+            DMA_tx[i] = DMA_rx[i] + 32;
+        }
+      }
+
+      if((DMA2->streams[7].SCR & 1) == 0 && USARTrxReady) {
+        //USART1->SR &= ~(1<<6UL); // clear the TC
+        DMA2->streams[7].SNDTR = 16;
+        DMA2->HIFCR |= ((0b1111 << 24UL) | (1 << 22UL)); // huh it is really important to clear those! 
+        DMA2->streams[7].SCR |= 1; // enable stream
+        while((DMA2->streams[7].SCR & 1) == 0); //not sure if needed
+      }
+
       off = 5000;
+      USARTrxReady = true;
     }
 
-    delay(5000);
+
+/*
+    if(DMA2->streams[5].SNDTR != SNDTR5_prev)
+    {
+      if(USARTrxReady) {
+        for(int i=0;i<16;i++) {
+          if(DMA_rx[i] >= 97)
+            DMA_tx[i] = DMA_rx[i] - 32;
+          else
+            DMA_tx[i] = DMA_rx[i] + 32;
+        }
+      }
+      
+      if((DMA2->streams[7].SCR & 1) == 0 && USARTrxReady) {
+        //USART1->SR &= ~(1<<6UL); // clear the TC
+        DMA2->streams[7].SNDTR = 16;
+        DMA2->HIFCR |= ((0b1111 << 24UL) | (1 << 22UL)); // huh it is really important to clear those! 
+        DMA2->streams[7].SCR |= 1; // enable stream
+        while((DMA2->streams[7].SCR & 1) == 0); //not sure if needed
+      }
+      
+      SNDTR5_prev = DMA2->streams[5].SNDTR;
+    }
+*/
+
+/*
+    if(USART1->SR & (1<<5UL)) {
+
+      DMA_tx[0] = USART1->DR;
+
+      if((DMA2->streams[7].SCR & 1) == 0 && USARTrxReady) {
+        //USART1->SR &= ~(1<<6UL); // clear the TC
+        DMA2->streams[7].SNDTR = 16;
+        DMA2->HIFCR |= ((0b1111 << 24UL) | (1 << 22UL)); // huh it is really important to clear those! 
+        DMA2->streams[7].SCR |= 1; // enable stream
+        while((DMA2->streams[7].SCR & 1) == 0); //not sure if needed
+      }
+
+      off = 5000;
+      USARTrxReady = true;
+    }
+*/
+
+
+    delay(5000+DMA2->streams[5].SNDTR*1333);
 
     GPIOB->ODR &= ~(1 << 12UL);
     delay(off);

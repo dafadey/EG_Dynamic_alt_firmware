@@ -1,7 +1,10 @@
 #!/bin/bash
 
+echo building go
+g++ -O3 HOST_stm32_go.cpp -o go
 echo building bootloader
 g++ -O3 HOST_stm32_bootloader.cpp -o bootloader
+echo building USART prober
 g++ -O3 USART_prober.cpp -o USART_prober
 
 echo cleaning
