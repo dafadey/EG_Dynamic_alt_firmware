@@ -3,7 +3,9 @@
 #include "utils_common.h"
 #include "utils_401.h"
 
-#define HEAP (SRAM_BASE + 0x100UL)
+//#define HEAP (SRAM_BASE + 0x10UL)
+
+extern uint8_t* __gcc_RAM_end__; 
 
 /* HEAP:
  * DMA_tx (32 uint8_t), DMA_rx (32 uint8_t), IA_TABLE (16*16 int_16), IA_TABLE_GAS (16*16 int_16), RPM uint16, MAP utin16, TPS uint16 
@@ -41,7 +43,8 @@ uint16_t* TPS; // comes from ADC, TPS line
 
 void allocate_memory() {
   ENTER_CRITICAL // in case reallocation is executed during normal operation
-  DMA_rx = (uint8_t*) HEAP;
+//  DMA_rx = (uint8_t*) HEAP;
+  DMA_rx = (uint8_t*) &__gcc_RAM_end__;
   DMA_tx = DMA_rx + DMA_rx_sz; 
   IA_TABLE_NORMAL = (int16_t*) DMA_tx + DMA_tx_sz;
   IA_TABLE_GAS = IA_TABLE_NORMAL + nx * ny * sizeof(uint16_t);    
@@ -159,24 +162,26 @@ This register is write-1-to-clear (W1C), so never use |= on it — you would cle
   }
 }
 
+/*
 int main();
 
 int reset() {
   return main();
 }
-
-extern uint8_t* __data;
+*/
+extern uint8_t* __data_start__;
 extern uint8_t* __data_end__;
+extern uint8_t* __text_end__;
 
-int main() {
-  /*
+int reset() {
+  
   {
-    uint8_t* from = __data;
-    uint8_t* to = (uint8_t*) SRAM_BASE;
-    for(; from < __data_end__; from++, to++)
-      *to = *from;
+    uint8_t* from = (uint8_t*) &__text_end__;
+    uint32_t to = (uint32_t) &__data_start__;
+    for(; to < (uint32_t) &__data_end__; from++, to++)
+      *((uint8_t*) to) = *from;
   }
-  */
+  
   DMA_tx_sz = 32;
   DMA_rx_sz = 32;
   nx = 16;
@@ -327,7 +332,7 @@ int main() {
   NOP
   NOP
   NOP
-  /*
+   
   for(int i=0;i<16;i++)
     DMA_tx[i] = msg[i];
   for(int i=0;i<3;i++)
@@ -335,7 +340,6 @@ int main() {
 
   for(int i=0;i<DMA_rx_sz;i++)
     DMA_rx[i] = ' ';
-  */
 
 /*  
   DMA_tx[0]  = 0b00100001; //0x21
@@ -390,11 +394,18 @@ int main() {
       while((DMA2->streams[5].SCR & 1) == 0); //not sure if needed
 
       if(USARTrxReady) {
-        for(int i=0;i<16;i++) {
-          if(DMA_rx[i] >= 97)
-            DMA_tx[i] = DMA_rx[i] - 32;
-          else
-            DMA_tx[i] = DMA_rx[i] + 32;
+        if(DMA_rx[0]=='m' && DMA_rx[1]=='s' && DMA_rx[2]=='g') {
+          for(int i=0;i<16;i++)
+            DMA_tx[i] = msg[i];
+        }
+        else
+        {
+          for(int i=0;i<16;i++) {
+            if(DMA_rx[i] >= 97)
+              DMA_tx[i] = DMA_rx[i] - 32;
+            else
+              DMA_tx[i] = DMA_rx[i] + 32;
+          }
         }
       }
 

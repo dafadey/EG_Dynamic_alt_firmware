@@ -21,8 +21,17 @@ arm-none-eabi-g++ -Os -c -fno-common -mcpu=cortex-m4 firmware.cpp -o firmware.o
 echo linking
 arm-none-eabi-ld -T linker.ld -o firmware.elf firmware.o
 #rm main.o
-arm-none-eabi-objcopy -O binary -j .text firmware.elf firmware.bin
+arm-none-eabi-objcopy -O binary -j .text firmware.elf firmware.bin.text
+arm-none-eabi-objcopy -O binary -j .data firmware.elf firmware.bin.data
+cat firmware.bin.text > firmware.bin
+cat firmware.bin.data >> firmware.bin
+rm -f firmware.bin.text firmware.bin.data
+
+echo elf to asm
 arm-none-eabi-objdump -D firmware.elf > firmware.dis
 
-# bin to s
+echo  bin to asm
 arm-none-eabi-objdump -D -bbinary -marm firmware.bin -Mforce-thumb > firmware_direct.dis
+
+echo extracting symbols
+arm-none-eabi-nm firmware.elf > firmware.sym
